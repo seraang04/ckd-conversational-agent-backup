@@ -1,3 +1,4 @@
+import { useText } from "@/lib/language";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -12,12 +13,13 @@ export const Route = createFileRoute("/session/")({
     language:
       search["language"] === "en" ? "en" : search["language"] === "hokkien" ? "hokkien" : "zh",
   }),
-  head: () => ({ meta: [{ title: "开始对话 · Start a conversation" }] }),
+  head: () => ({ meta: [{ title: "Start a conversation" }] }),
   component: StartConversation,
 });
 
 function StartConversation() {
   const { language } = Route.useSearch();
+  const t = useText(language);
   const navigate = useNavigate();
   const [savedCode, setSavedCode] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -46,7 +48,10 @@ function StartConversation() {
           forgetDeviceSession();
           setSavedCode(null);
           toast.error(
-            "找不到之前的对话，请开始新对话。 · Your saved conversation is unavailable. Please start a new one.",
+            t(
+              "找不到之前的对话，请开始新对话。",
+              "Your saved conversation is unavailable. Please start a new one.",
+            ),
           );
           return;
         }
@@ -78,12 +83,17 @@ function StartConversation() {
       setSavedCode(code);
       if (!rememberDeviceSession(code)) {
         toast.warning(
-          "This browser cannot remember your conversation. Bookmark the conversation page to return to it.",
+          t(
+            "此浏览器无法记住您的对话。请收藏对话页面，以便稍后继续。",
+            "This browser cannot remember your conversation. Bookmark the conversation page to return to it.",
+          ),
         );
       }
-      await navigate({ to: "/session/$code", params: { code } });
+      await navigate({ to: "/session/$code", params: { code }, search: { language } });
     } catch {
-      toast.error("无法打开对话，请重试。 · Could not open the conversation. Please try again.");
+      toast.error(
+        t("无法打开对话，请重试。", "Could not open the conversation. Please try again."),
+      );
     } finally {
       inFlight.current = false;
       setBusy(false);
@@ -91,22 +101,22 @@ function StartConversation() {
   };
 
   return (
-    <Page>
+    <Page language={language}>
       <div className="space-y-6">
         <h1 className="text-3xl font-semibold text-foreground">
-          谈谈您在意的事 · Let’s talk about what matters to you
+          {t("谈谈您在意的事", "Let’s talk about what matters to you")}
         </h1>
         <p className="text-lg text-muted-foreground">
           {language === "en"
             ? "English"
             : language === "hokkien"
-              ? "福建话 · Hokkien"
-              : "华语 · Mandarin Chinese"}
+              ? t("福建话", "Hokkien")
+              : t("华语", "Mandarin Chinese")}
         </p>
         <Card className="space-y-5">
           {savedCode ? (
             <BigButton disabled={!ready || busy} onClick={() => void open(true)}>
-              继续对话 · Continue conversation
+              {t("继续对话", "Continue conversation")}
             </BigButton>
           ) : null}
           <BigButton
@@ -114,17 +124,23 @@ function StartConversation() {
             disabled={!ready || busy}
             onClick={() => void open(false)}
           >
-            {busy ? "正在打开… Opening…" : "开始新对话 · Start conversation"}
+            {busy ? t("正在打开…", "Opening…") : t("开始新对话", "Start conversation")}
           </BigButton>
           <p className="text-sm text-muted-foreground">
-            Your answers are saved as you go. Return using this browser on this device to continue.
+            {t(
+              "您的回答会自动保存。请使用同一设备上的此浏览器回来继续。",
+              "Your answers are saved as you go. Return using this browser on this device to continue.",
+            )}
             {savedCode
-              ? " Starting a new conversation replaces the one remembered on this device."
+              ? t(
+                  "开始新对话会替换此设备记住的对话。",
+                  "Starting a new conversation replaces the one remembered on this device.",
+                )
               : ""}
           </p>
         </Card>
         <Link to="/" className="block font-semibold text-primary underline">
-          更换语言 · Change language
+          {t("更换语言", "Change language")}
         </Link>
         <FooterNote />
       </div>
