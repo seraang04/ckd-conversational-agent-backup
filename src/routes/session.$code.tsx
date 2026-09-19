@@ -421,13 +421,6 @@ function SessionFlow() {
               Your renal coordinator will read this before the next consultation. Nothing you asked to
               withhold was included.
             </p>
-            <Link
-              to="/coordinator/$code"
-              params={{ code: session.code }}
-              className="block text-lg font-semibold text-primary underline"
-            >
-              看摘要 · View the summary
-            </Link>
           </Card>
         ) : null}
 

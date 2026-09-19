@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { MessageCircle, Stethoscope } from "lucide-react";
+import { MessageCircle } from "lucide-react";
 
 import { BigButton, Card, FooterNote, Page } from "@/components/ckd/ui";
 
@@ -43,11 +43,6 @@ function Home() {
           <BigButton onClick={() => void navigate({ to: "/session" })}>
             <span className="flex items-center justify-center gap-3">
               <MessageCircle className="h-6 w-6" /> 继续对话 · Continue a session
-            </span>
-          </BigButton>
-          <BigButton variant="soft" onClick={() => void navigate({ to: "/coordinator" })}>
-            <span className="flex items-center justify-center gap-3">
-              <Stethoscope className="h-6 w-6" /> 协调员查看 · Coordinator view
             </span>
           </BigButton>
         </Card>
