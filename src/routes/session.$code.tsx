@@ -2,10 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Check, Lock, Pause, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { BigButton, Card, FooterNote, Notice, Page, SpeakerBadge, inputClass } from "@/components/ckd/ui";
+import {
+  BigButton,
+  Card,
+  FooterNote,
+  Notice,
+  Page,
+  SpeakerBadge,
+  inputClass,
+} from "@/components/ckd/ui";
 import { VoiceAnswer } from "@/components/ckd/VoiceAnswer";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchSessionBundle, type EntryRow, type SummaryRow } from "@/lib/ckd-db";
@@ -17,6 +25,7 @@ import {
   reflectAnswer,
 } from "@/lib/ckd.functions";
 import { speak } from "@/lib/speak";
+import { rememberDeviceSession } from "@/lib/session-device";
 
 export const Route = createFileRoute("/session/$code")({
   head: () => ({
@@ -30,7 +39,8 @@ export const Route = createFileRoute("/session/$code")({
       { property: "og:title", content: "Values conversation" },
       {
         property: "og:description",
-        content: "A voice-led conversation about what matters to you before your kidney consultation.",
+        content:
+          "A voice-led conversation about what matters to you before your kidney consultation.",
       },
     ],
   }),
@@ -43,7 +53,11 @@ const PATIENT_QUESTIONS = SCRIPT.filter((q) => PATIENT_FLOW.includes(q.section))
 
 type SummaryKey = keyof Pick<
   SummaryRow,
-  "patient_priorities" | "caregiver_support" | "shared_concerns" | "differing_concerns" | "flagged_topics"
+  | "patient_priorities"
+  | "caregiver_support"
+  | "shared_concerns"
+  | "differing_concerns"
+  | "flagged_topics"
 >;
 
 const SUMMARY_SECTIONS: { key: SummaryKey; zh: string; en: string }[] = [
@@ -73,7 +87,11 @@ function SessionFlow() {
 
   const bundle = query.data;
   const session = bundle?.session;
-  const entries = bundle?.entries ?? [];
+  useEffect(() => {
+    if (session) rememberDeviceSession(session.code);
+  }, [session]);
+
+  const entries = useMemo(() => bundle?.entries ?? [], [bundle?.entries]);
   const dialect = session?.language === "hokkien" ? "hokkien" : "zh";
 
   const answered = useMemo(() => new Set(entries.map((e) => e.topic)), [entries]);
@@ -170,10 +188,14 @@ function SessionFlow() {
     return (
       <Page>
         <Card className="space-y-4">
-          <h1 className="text-2xl font-semibold text-foreground">找不到这个号码</h1>
-          <p className="text-muted-foreground">No session with the code {code}.</p>
-          <Link to="/session" className="text-lg font-semibold text-primary underline">
-            再输入一次 · Try another code
+          <h1 className="text-2xl font-semibold text-foreground">无法打开对话</h1>
+          <p className="text-muted-foreground">
+            {query.isError
+              ? "Could not load your conversation. Please try again."
+              : "This conversation is no longer available."}
+          </p>
+          <Link to="/" className="text-lg font-semibold text-primary underline">
+            返回首页 · Back to home
           </Link>
         </Card>
       </Page>
@@ -183,7 +205,10 @@ function SessionFlow() {
   const isCaregiverStage = session.stage === "caregiver";
 
   return (
-    <Page variant={isCaregiverStage ? "caregiver" : "patient"} subtitle={`Session ${session.code}`}>
+    <Page
+      variant={isCaregiverStage ? "caregiver" : "patient"}
+      subtitle={dialect === "hokkien" ? "福建话 · Hokkien" : "华语 · Mandarin Chinese"}
+    >
       <div className="space-y-5">
         <Progress stage={session.stage} />
 
@@ -191,8 +216,8 @@ function SessionFlow() {
           <Notice tone="warn">
             如果您现在心里很难受，请告诉身边的人，或联络您的护理团队。
             <br />
-            If this feels heavy right now, please tell someone with you or contact your care team. We
-            will note that you would like support.
+            If this feels heavy right now, please tell someone with you or contact your care team.
+            We will note that you would like support.
           </Notice>
         ) : null}
 
@@ -216,8 +241,9 @@ function SessionFlow() {
           <Card className="space-y-4">
             <h1 className="text-3xl font-semibold text-foreground">今天先休息</h1>
             <p className="text-lg text-muted-foreground">
-              We have saved that today was not the right day. That is a completely valid answer, and the
-              coordinator will see it. Come back any time with code {session.code}.
+              We have saved that today was not the right day. That is a completely valid answer, and
+              the coordinator will see it. Return to this app in the same browser and choose
+              Continue conversation whenever you are ready.
             </p>
             <BigButton onClick={() => void setStage("checkin")}>
               我想继续 · I would like to continue
@@ -233,11 +259,20 @@ function SessionFlow() {
               您不想让别人知道的事，可以随时说不要写进去。
             </p>
             <p className="text-base text-muted-foreground">
-              Your words are written down and turned into a summary for the renal coordinator. Anything
-              you ask to keep out is left out. You can stop at any time.
+              Your words are written down and turned into a summary for the renal coordinator.
+              Anything you ask to keep out is left out. You can stop at any time.
             </p>
-            <BigButton onClick={() => void setStage("explore")}>好，我同意 · Yes, go ahead</BigButton>
-            <BigButton variant="ghost" onClick={() => void setStage("paused", { readiness: "declined" })}>
+            <BigButton
+              onClick={() =>
+                void setStage("explore", { consent_recording: true, consent_sharing: true })
+              }
+            >
+              好，我同意 · Yes, go ahead
+            </BigButton>
+            <BigButton
+              variant="ghost"
+              onClick={() => void setStage("paused", { readiness: "declined" })}
+            >
               今天不要 · Not today
             </BigButton>
           </Card>
@@ -306,8 +341,8 @@ function SessionFlow() {
             {session.stage === "sensitive_private" ? (
               <Notice tone="warn">
                 <span className="flex items-center gap-2">
-                  <Lock className="h-4 w-4" /> 这一段只有您和协调员看到，照顾者看不到。 · This answer stays
-                  private: the caregiver will not see it.
+                  <Lock className="h-4 w-4" /> 这一段只有您和协调员看到，照顾者看不到。 · This
+                  answer stays private: the caregiver will not see it.
                 </span>
               </Notice>
             ) : null}
@@ -331,9 +366,13 @@ function SessionFlow() {
                 )
               }
               onSkip={() =>
-                void saveEntry(SENSITIVE_QUESTION, "（跳过 skipped）", "typed", "patient", "skipped").then(
-                  () => setStage("caregiver"),
-                )
+                void saveEntry(
+                  SENSITIVE_QUESTION,
+                  "（跳过 skipped）",
+                  "typed",
+                  "patient",
+                  "skipped",
+                ).then(() => setStage("caregiver"))
               }
               onDefer={() =>
                 void saveEntry(
@@ -352,8 +391,8 @@ function SessionFlow() {
           nextCaregiverQuestion ? (
             <div className="space-y-4">
               <Notice>
-                这一段是问照顾者的，和病人的回答分开记录。 · This section is for the caregiver and is
-                recorded separately from the patient's answers.
+                这一段是问照顾者的，和病人的回答分开记录。 · This section is for the caregiver and
+                is recorded separately from the patient's answers.
               </Notice>
               <VoiceAnswer
                 key={nextCaregiverQuestion.id}
@@ -374,7 +413,13 @@ function SessionFlow() {
                   )
                 }
                 onSkip={() =>
-                  void saveEntry(nextCaregiverQuestion, "（跳过 skipped）", "typed", "caregiver", "skipped")
+                  void saveEntry(
+                    nextCaregiverQuestion,
+                    "（跳过 skipped）",
+                    "typed",
+                    "caregiver",
+                    "skipped",
+                  )
                 }
                 onDefer={() =>
                   void saveEntry(
@@ -393,7 +438,9 @@ function SessionFlow() {
               <p className="text-lg text-muted-foreground">
                 All questions are done. Next we put it together so the patient can check it.
               </p>
-              <BigButton onClick={() => void setStage("synthesis")}>整理一下 · Put it together</BigButton>
+              <BigButton onClick={() => void setStage("synthesis")}>
+                整理一下 · Put it together
+              </BigButton>
             </Card>
           )
         ) : null}
@@ -418,8 +465,8 @@ function SessionFlow() {
             <Check className="mx-auto h-14 w-14 text-primary" />
             <h1 className="text-3xl font-semibold text-foreground">谢谢您，都准备好了</h1>
             <p className="text-lg text-muted-foreground">
-              Your renal coordinator will read this before the next consultation. Nothing you asked to
-              withhold was included.
+              Your renal coordinator will read this before the next consultation. Nothing you asked
+              to withhold was included.
             </p>
           </Card>
         ) : null}
@@ -799,7 +846,9 @@ function Confirmation({
       </Card>
 
       <BigButton onClick={() => void confirm()} disabled={working}>
-        {working ? "正在准备… Preparing…" : "就这样，交给协调员 · Confirm and send to the coordinator"}
+        {working
+          ? "正在准备… Preparing…"
+          : "就这样，交给协调员 · Confirm and send to the coordinator"}
       </BigButton>
     </div>
   );
