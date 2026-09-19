@@ -12,6 +12,12 @@ Open your project in the [Lovable editor](https://lovable.dev) and keep building
 
 ## Development
 
+### Prerequisites
+
+- Node.js >= 20.19
+  - Recommended: Node.js 22 LTS
+- npm
+
 Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh
