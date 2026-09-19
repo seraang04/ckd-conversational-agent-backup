@@ -92,7 +92,8 @@ function SessionFlow() {
   }, [session]);
 
   const entries = useMemo(() => bundle?.entries ?? [], [bundle?.entries]);
-  const dialect = session?.language === "hokkien" ? "hokkien" : "zh";
+  const dialect =
+    session?.language === "en" ? "en" : session?.language === "hokkien" ? "hokkien" : "zh";
 
   const answered = useMemo(() => new Set(entries.map((e) => e.topic)), [entries]);
   const nextPatientQuestion = PATIENT_QUESTIONS.find((q) => !answered.has(q.id)) ?? null;
@@ -161,12 +162,19 @@ function SessionFlow() {
       }
       try {
         const [{ reflection: text }, { distressed }] = await Promise.all([
-          reflect({ data: { question: question.zh, answer, speaker: who } }),
+          reflect({
+            data: { question: dialect === "en" ? question.en : question.zh, answer, speaker: who },
+          }),
           distressCheck({ data: { answer } }),
         ]);
         setReflection(text);
         if (distressed) setDistress(true);
-        void speak(text.split("EN:")[0] ?? text, dialect);
+        void speak(
+          dialect === "en"
+            ? (text.split("EN:")[1]?.trim() ?? text)
+            : (text.split("EN:")[0] ?? text),
+          dialect,
+        );
       } catch {
         // A missing reflection never blocks the conversation.
       }
@@ -207,7 +215,13 @@ function SessionFlow() {
   return (
     <Page
       variant={isCaregiverStage ? "caregiver" : "patient"}
-      subtitle={dialect === "hokkien" ? "福建话 · Hokkien" : "华语 · Mandarin Chinese"}
+      subtitle={
+        dialect === "en"
+          ? "English"
+          : dialect === "hokkien"
+            ? "福建话 · Hokkien"
+            : "华语 · Mandarin Chinese"
+      }
     >
       <div className="space-y-5">
         <Progress stage={session.stage} />
@@ -519,7 +533,10 @@ function CheckIn({
   onReady: () => void;
   onNotReady: () => void;
 }) {
-  const text = "今天方便谈一谈吗？如果今天心情不好，也可以改天。";
+  const text =
+    dialect === "en"
+      ? "Is today a good day to talk? If you are not feeling up to it, another day is fine."
+      : "今天方便谈一谈吗？如果今天心情不好，也可以改天。";
   return (
     <Card className="space-y-5">
       <h1 className="text-3xl font-semibold leading-snug text-foreground">{text}</h1>
@@ -551,7 +568,9 @@ function ReadinessSupport({
   onPause: () => void;
 }) {
   const body =
-    "没关系。这个对话不是要您马上决定什么。我们只是想知道，什么事对您来说重要，好让医生和协调员先知道。您随时可以停下来。";
+    dialect === "en"
+      ? "Nothing here asks you to decide anything. We only want to know what matters to you, so your doctor and coordinator know it before the consultation. You can stop at any time."
+      : "没关系。这个对话不是要您马上决定什么。我们只是想知道，什么事对您来说重要，好让医生和协调员先知道。您随时可以停下来。";
   return (
     <Card className="space-y-5">
       <h1 className="text-3xl font-semibold text-foreground">慢慢来，没关系</h1>
@@ -582,7 +601,10 @@ function SensitiveGate({
   dialect: string;
   onChoose: (choice: "private" | "together" | "defer") => void;
 }) {
-  const text = "接下来想问换肾和家人捐肾的事。您希望怎么谈？";
+  const text =
+    dialect === "en"
+      ? "Next is about transplant and living donation. How would you like to talk about it? You never have to explain your choice."
+      : "接下来想问换肾和家人捐肾的事。您希望怎么谈？";
   return (
     <Card className="space-y-5">
       <h1 className="text-3xl font-semibold leading-snug text-foreground">{text}</h1>

@@ -31,6 +31,7 @@ export function VoiceAnswer({
   busy,
   reflection,
 }: Props) {
+  const spokenQuestion = dialect === "en" ? questionEn : questionZh;
   const [draft, setDraft] = useState("");
   const [recording, setRecording] = useState(false);
   const [working, setWorking] = useState(false);
@@ -43,9 +44,9 @@ export function VoiceAnswer({
     setDraft("");
     setTyping(false);
     setError(null);
-    void speak(questionZh, dialect);
+    void speak(spokenQuestion, dialect);
     return () => stopSpeaking();
-  }, [questionZh, dialect]);
+  }, [spokenQuestion, dialect]);
 
   const begin = useCallback(async () => {
     setError(null);
@@ -54,7 +55,9 @@ export function VoiceAnswer({
       recorderRef.current = await startRecording(setLevel);
       setRecording(true);
     } catch {
-      setError("没办法使用麦克风。请允许麦克风权限，或用打字。 · Microphone unavailable — allow access or type instead.");
+      setError(
+        "没办法使用麦克风。请允许麦克风权限，或用打字。 · Microphone unavailable — allow access or type instead.",
+      );
       setTyping(true);
     }
   }, []);
@@ -67,7 +70,7 @@ export function VoiceAnswer({
     recorderRef.current = null;
     try {
       const blob = await recorder.stop();
-      const text = await transcribe(blob, "zh");
+      const text = await transcribe(blob, dialect === "en" ? "en" : "zh");
       if (!text) throw new Error("empty_recording");
       setDraft((prev) => (prev ? `${prev} ${text}` : text));
     } catch (err) {
@@ -80,7 +83,7 @@ export function VoiceAnswer({
       setWorking(false);
       setLevel(0);
     }
-  }, []);
+  }, [dialect]);
 
   return (
     <Card className="space-y-6">
@@ -96,11 +99,11 @@ export function VoiceAnswer({
       </div>
 
       <div className="space-y-2">
-        <p className="text-3xl font-semibold leading-snug text-foreground">{questionZh}</p>
-        <p className="text-base text-muted-foreground">{questionEn}</p>
+        <p className="text-3xl font-semibold leading-snug text-foreground">{spokenQuestion}</p>
+        {dialect !== "en" ? <p className="text-base text-muted-foreground">{questionEn}</p> : null}
         <button
           type="button"
-          onClick={() => void speak(questionZh, dialect)}
+          onClick={() => void speak(spokenQuestion, dialect)}
           className="inline-flex items-center gap-2 rounded-full bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground"
         >
           <Volume2 className="h-4 w-4" /> 再听一次 · Read aloud
@@ -109,7 +112,7 @@ export function VoiceAnswer({
 
       {reflection ? (
         <div className="rounded-2xl bg-secondary p-4 text-base leading-relaxed text-secondary-foreground whitespace-pre-line">
-          {reflection}
+          {dialect === "en" ? (reflection.split("EN:")[1]?.trim() ?? reflection) : reflection}
         </div>
       ) : null}
 
@@ -137,7 +140,11 @@ export function VoiceAnswer({
               <Mic className="h-10 w-10" />
             )}
           </span>
-          {working ? "正在整理您的话…" : recording ? "说完了，按一下 · Tap when done" : "按住说话 · Tap to speak"}
+          {working
+            ? "正在整理您的话… · Transcribing…"
+            : recording
+              ? "说完了，按一下 · Tap when done"
+              : "按住说话 · Tap to speak"}
         </button>
 
         {!typing ? (
@@ -164,7 +171,10 @@ export function VoiceAnswer({
       ) : null}
 
       {draft.trim() ? (
-        <BigButton onClick={() => onSubmit(draft.trim(), typing ? "typed" : "voice")} disabled={busy}>
+        <BigButton
+          onClick={() => onSubmit(draft.trim(), typing ? "typed" : "voice")}
+          disabled={busy}
+        >
           {busy ? "…" : "就是这样 · That's right"}
         </BigButton>
       ) : null}

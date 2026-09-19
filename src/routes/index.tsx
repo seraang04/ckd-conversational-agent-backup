@@ -38,6 +38,12 @@ function Home() {
         </div>
 
         <Card className="space-y-4">
+          <BigButton
+            variant="soft"
+            onClick={() => void navigate({ to: "/session", search: { language: "en" } })}
+          >
+            English
+          </BigButton>
           <BigButton onClick={() => void navigate({ to: "/session", search: { language: "zh" } })}>
             华语 · Mandarin Chinese
           </BigButton>

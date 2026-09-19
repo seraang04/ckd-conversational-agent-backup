@@ -8,8 +8,9 @@ import { makeCode } from "@/lib/ckd-db";
 import { forgetDeviceSession, getDeviceSession, rememberDeviceSession } from "@/lib/session-device";
 
 export const Route = createFileRoute("/session/")({
-  validateSearch: (search: Record<string, unknown>): { language: "zh" | "hokkien" } => ({
-    language: search["language"] === "hokkien" ? "hokkien" : "zh",
+  validateSearch: (search: Record<string, unknown>): { language: "zh" | "hokkien" | "en" } => ({
+    language:
+      search["language"] === "en" ? "en" : search["language"] === "hokkien" ? "hokkien" : "zh",
   }),
   head: () => ({ meta: [{ title: "开始对话 · Start a conversation" }] }),
   component: StartConversation,
@@ -96,7 +97,11 @@ function StartConversation() {
           谈谈您在意的事 · Let’s talk about what matters to you
         </h1>
         <p className="text-lg text-muted-foreground">
-          {language === "hokkien" ? "福建话 · Hokkien" : "华语 · Mandarin Chinese"}
+          {language === "en"
+            ? "English"
+            : language === "hokkien"
+              ? "福建话 · Hokkien"
+              : "华语 · Mandarin Chinese"}
         </p>
         <Card className="space-y-5">
           {savedCode ? (
